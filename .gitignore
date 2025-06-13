@@ -1,2 +1,4 @@
 *.jpg
 __pycache__/
+.email_credentials
+.email_credentials

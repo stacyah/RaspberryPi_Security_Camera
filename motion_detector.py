@@ -3,10 +3,51 @@ import time
 import os
 import threading
 import logging
+import configparser
+import subprocess
 from flask import Flask, render_template, send_from_directory
-# pre-trained human detector model 
+# pre-trained human detector model
 hog = cv2.HOGDescriptor()
 hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+def send_alert(image_path):
+    # securely read credentials
+    config = configparser.ConfigParser()
+    config.read('/home/pi/security_camera_project/.email_credentials')
+
+    email = config['email']['address']
+    pwd = config['email']['password']
+    recipient = config['email']['recipient']
+
+    # build email with image attached
+    cmd = f"""
+    curl -s --ssl-reqd \
+      --url 'smtps://smtp.gmail.com:465' \
+      --user '{email}:{pwd}' \
+      --mail-from '{email}' \
+      --mail-rcpt '{recipient}' \
+      --upload-file - <<EOF
+    From: "Pi Security" <{email}>
+    To: "You" <{recipient}>
+    Subject: SECURITY ALERT! Human detected
+    Date: $(date -R)
+    Content-Type: multipart/mixed; boundary="BOUNDARY"
+
+    --BOUNDARY
+    Content-Type: text/plain
+
+    Human detected at $(date)!
+    check the attached image
+
+    --BOUNDARY
+    Content-Type: image/jpeg
+    Content-Disposition: attachment; filename="detection.jpg"
+
+    $(base64 {image_path})
+    --BOUNDARY--
+    EOF
+    """
+    subprocess.run(cmd, shell=True, check=True)
 
 # set up logging
 # create a file named app.log
@@ -77,21 +118,18 @@ def motion_detection_thread():
                 break
 
         # save and log based on human detection
-        if human_detected: # if human seen
-            print("[Motion Thread] Human Detected!")
-            current_time = time.strftime("%Y-%m-%d_%H-%M-%S")
-            filename = f"human_{current_time}.jpg"
+        if human_detected and (time.time() - last_human_alert > 30):
+            filename = f"human_{time.strftime('%Y-%m-%d_%H-%M-%S')}.jpg"
             cv2.imwrite(filename, frame)
-            log_message = f'human_detected file_saved="{filename}"' # human event log
-            logging.info(log_message)
-            print(f"[Motion Thread] Saved image as {filename}")
-            static_back = gray # update background
-            time.sleep(5) # cooldown for human detection
+            logging.info(f'human_detected file="{filename}"')
+            send_alert(filename)  # sends the email
+            last_human_alert = time.time()
+            time.sleep(30)  # extended cooldown
 
         elif motion_detected_significant: # if significant motion but no human
             print("[Motion Thread] Motion Detected: No human, adapting background")
-            static_back = gray # update background to ignore nonhuman changes
-            time.sleep(1) # shorter cooldown for nonhuman motion
+            static_back = gray # update background
+            time.sleep(1) # shorter cooldown
 
 app = Flask(__name__)
 
