@@ -2,7 +2,18 @@ import cv2
 import time
 import os
 import threading
+import logging
 from flask import Flask, render_template, send_from_directory
+
+# set up logging
+# create a file named app.log
+log_file = os.path.join(os.path.dirname(__file__), 'app.log')
+logging.basicConfig(
+    filename=log_file,
+    level=logging.INFO,
+    format='%(asctime)s event="%(message)s"',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 def motion_detection_thread():
     # so we can access video from anywhere
@@ -16,6 +27,7 @@ def motion_detection_thread():
     print("[Motion Thread] Camera warming up...")
     time.sleep(2.0)
     print("[Motion Thread] Camera ready. Watching for motion")
+    logging.info('camera_startup_success')
 
     while True:
         check, frame = video.read()
@@ -50,12 +62,16 @@ def motion_detection_thread():
             current_time = time.strftime("%Y-%m-%d_%H-%M-%S")
             filename = f"motion_{current_time}.jpg"
             cv2.imwrite(filename, frame)
+            # log the motion event in structured key=value format
+            log_message = f'motion_detected file_saved="{filename}"'
+            logging.info(log_message)
             print(f"[Motion Thread] Saved image as {filename}")
+
             static_back = gray
-            # cooldown to not save too many pictures
+            # picture cooldown
             time.sleep(5)
 
-        # wait for a sec so the cpu doesn't melt
+        # wait a sec so the cpu doesn't melt
         time.sleep(0.1)
 
 app = Flask(__name__)
@@ -69,17 +85,20 @@ def index():
 
 @app.route('/images/<filename>')
 def get_image(filename):
-    # lets the html see the images
+    # lets html see the images
     return send_from_directory('.', filename)
 
 # run it
 if __name__ == '__main__':
     # start the motion thread
     motion_thread = threading.Thread(target=motion_detection_thread)
-    # lets us exit the app easily
     motion_thread.daemon = True
     motion_thread.start()
 
-    # start the web server on our local network
+    # monitor new log file
+    log_monitor_command = f"sudo /opt/splunkforwarder/bin/splunk add monitor {log_file}"
+    print(f"[Main Thread] Adding log file to Splunk monitor, you may need to enter your password")
+    os.system(log_monitor_command)
+
     print("[Web Server] Starting Flask server")
     app.run(host='0.0.0.0', port=5000)
