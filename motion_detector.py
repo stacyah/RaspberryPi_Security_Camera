@@ -4,6 +4,9 @@ import os
 import threading
 import logging
 from flask import Flask, render_template, send_from_directory
+# pre-trained human detector model 
+hog = cv2.HOGDescriptor()
+hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
 # set up logging
 # create a file named app.log
@@ -49,30 +52,46 @@ def motion_detection_thread():
         contours, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         motion_detected = False
-        for contour in contours:
-            if cv2.contourArea(contour) < 500:
-                continue
-            motion_detected = True
-            # don't need the green box for the web version
-            # (x, y, w, h) = cv2.boundingRect(contour)
-            # cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        human_detected = False # flag if a human is found
+        motion_areas = [] # store where motion happened
 
-        if motion_detected:
-            print("[Motion Thread] Motion Detected!")
+        for contour in contours:
+            if cv2.contourArea(contour) < 1000:
+                continue
+
+            # if we found a significant motion area
+            motion_detected_significant = True
+            (x, y, w, h) = cv2.boundingRect(contour)
+            # draw a green box around general motion
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        # only run human detection if there was significant motion
+        if motion_detected_significant:
+            # run human detector on the whole frame
+            (rects, weights) = hog.detectMultiScale(frame, winStride=(8, 8), padding=(8, 8), scale=1.05)
+
+            for (x, y, w, h) in rects:
+                # draw a blue box if human found
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                human_detected = True
+                break
+
+        # save and log based on human detection
+        if human_detected: # if human seen
+            print("[Motion Thread] Human Detected!")
             current_time = time.strftime("%Y-%m-%d_%H-%M-%S")
-            filename = f"motion_{current_time}.jpg"
+            filename = f"human_{current_time}.jpg"
             cv2.imwrite(filename, frame)
-            # log the motion event in structured key=value format
-            log_message = f'motion_detected file_saved="{filename}"'
+            log_message = f'human_detected file_saved="{filename}"' # human event log
             logging.info(log_message)
             print(f"[Motion Thread] Saved image as {filename}")
+            static_back = gray # update background
+            time.sleep(5) # cooldown for human detection
 
-            static_back = gray
-            # picture cooldown
-            time.sleep(5)
-
-        # wait a sec so the cpu doesn't melt
-        time.sleep(0.1)
+        elif motion_detected_significant: # if significant motion but no human
+            print("[Motion Thread] Motion Detected: No human, adapting background")
+            static_back = gray # update background to ignore nonhuman changes
+            time.sleep(1) # shorter cooldown for nonhuman motion
 
 app = Flask(__name__)
 
