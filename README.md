@@ -2,29 +2,33 @@
 
 ## Description
 
-This is a security monitoring system built from scratch on a Raspberry Pi. It transforms a webcam into a motion detector that captures images, serves them to a web interface, and forwards security events to a Splunk SIEM for live analysis and alerting.
+A security monitoring system built from scratch on a Raspberry Pi. It transforms a webcam into a motion detector that captures images, serves them to a web interface, and forwards security events to a Splunk SIEM for live analysis and alerting.
 
 ---
 
-## Features
+### Showcase
 
-* **Motion Detection:** Uses Python and OpenCV to monitor webcam feed, detect motion, and capture timestamped images of events.
-* **Web Interface:** A Flask web application serves a UI to view all captured motion event images from any device on the local network.
-* **Centralized Logging (SIEM):** All motion detection events are written to a log file on the Pi.
-* **Log Forwarding:** A Splunk Universal Forwarder is configured to send all security events and application logs to a central Splunk instance.
-* **Data Analysis & Visualization:** Events can be searched, analyzed, and visualized in Splunk to track security events over time.
-* **Hardened Linux Environment:** The Raspberry Pi OS was hardened by disabling password authentication and instead using SSH keys, configuring a 'ufw' firewall, and deploying 'fail2ban' to prevent brute force attacks.
+### 1. SIEM Monitoring Dashboard
+All security events from the Raspberry Pi are forwarded to a central Splunk instance. I created a custom dashboard to monitor these events in real-time, search through historical data, and visualize trends, simulating a professional Security Operations Center (SOC) workflow.
 
----
+![Splunk Monitoring Dashboard](screenshots/splunk_dashboard.png)
+
+### 2. OS Hardening & Security
+The Raspberry Pi OS was hardened to reduce its attack surface since this is an internet-facing and security-sensitive device. Key hardening steps included:
+* Disabling password-based logins, instead using SSH key authentication.
+* Configuring the UFW to only allow essential traffic.
+* Deploying Fail2ban to automatically block IP addresses that fail too many login attempts.
+
+*You can view the configuration files and commands used for this process here:* **[View Hardening Configs](configurations/)**
+
+### 3. Motion detection & Web Interface
+A Python script uses OpenCV to constantly monitor the webcam feed for motion. When motion is detected, a timestamped image is saved to a Flask web application that uses a simple UI to view all captured event images.
 
 ## Technologies Used
 
 * **Hardware:** Raspberry Pi, USB Webcam
 * **Operating System:** Raspberry Pi OS (Debian-based Linux)
 * **Core Language:** Python
-* **Libraries & Frameworks:**
-    * **OpenCV:** for camera interaction and image processing
-    * **Flask:** for the web interface
-    * **Threading:** for simultaneous task handling
+* **Libraries & Frameworks:** OpenCV, Flask
 * **SIEM & Logging:** Splunk Enterprise, Splunk Universal Forwarder
-* **System & Security Tools:** Git, GitHub, SSH, 'ufw' Firewall, 'fail2ban' Intrusion Prevention
+* **System & Security Tools:** Git, GitHub, SSH, UFW Firewall, Fail2ban
