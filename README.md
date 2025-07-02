@@ -19,7 +19,7 @@ The Raspberry Pi OS was hardened to reduce its attack surface since this is an i
 * Configuring the UFW to only allow essential traffic.
 * Deploying Fail2ban to automatically block IP addresses that fail too many login attempts.
 
-*You can view the configuration files and commands used for this process here:* **[View Hardening Configs](configurations/)**
+*You can view the configuration files and commands used for this process here:* **[View Hardening Configs](config/)**
 
 ### 3. Motion detection & Web Interface
 A Python script uses OpenCV to constantly monitor the webcam feed for motion. When motion is detected, a timestamped image is saved to a Flask web application that uses a simple UI to view all captured event images.
